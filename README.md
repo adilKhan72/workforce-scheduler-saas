@@ -25,9 +25,28 @@ It implements a working slice of a system design I wrote up separately:
 
 ## Roadmap
 
-- [ ] **M1** Domain model, tenancy (scope + middleware + RLS), DST-aware shift times, CI on PostgreSQL 17
+- [x] **M1** Domain model, tenancy (scope + middleware + RLS), DST-aware shift times, CI on PostgreSQL 17
 - [ ] **M2** GraphQL API (Lighthouse + Sanctum), rule engine and packs, publish week, swap requests
 - [ ] **M3** Vue 3 week-grid dashboard (assign staff, see violations, publish)
+
+## Run it
+
+```bash
+make key        # .env with a fresh APP_KEY
+make up         # postgres 17, migrations (as owner), API on :8000 (as the non-owner runtime role)
+make seed       # two demo tenants
+curl -s localhost:8000/api/login -H 'Content-Type: application/json' \
+  -d '{"email":"manager@northwind.test","password":"password"}'
+```
+
+## Tests
+
+```bash
+make test-api      # Pint + tests on SQLite (fast; RLS suite skipped with a reason)
+make test-api-pg   # full suite on the compose PostgreSQL 17, as CI runs it
+```
+
+CI runs everything on PostgreSQL 17 and fails if any test is skipped there.
 
 ## License
 

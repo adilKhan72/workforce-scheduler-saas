@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: api (Laravel, PostgreSQL 17)
+    runs-on: ubuntu-latest
+    # Row-level security is PostgreSQL-only, so CI never uses the SQLite default from phpunit.xml.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: scheduler_test
+          POSTGRES_USER: scheduler
+          POSTGRES_PASSWORD: scheduler
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U scheduler" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: scheduler_test
+      DB_USERNAME: scheduler
+      DB_PASSWORD: scheduler
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('api/composer.lock') }}
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Code style (Pint)
+        run: vendor/bin/pint --test
+      - name: Tests (RLS suite must not be skipped here)
+        run: php artisan test --display-skipped 2>&1 | tee test-output.txt; test ${PIPESTATUS[0]} -eq 0 && ! grep -qE "Tests:.*skipped" test-output.txt
+        shell: bash
+
+  compose:
+    name: docker compose build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+        env:
+          APP_KEY: base64:ci-only-not-a-secret
+      - run: docker compose build
+        env:
+          APP_KEY: base64:ci-only-not-a-secret
