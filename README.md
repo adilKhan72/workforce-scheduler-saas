@@ -26,8 +26,59 @@ It implements a working slice of a system design I wrote up separately:
 ## Roadmap
 
 - [x] **M1** Domain model, tenancy (scope + middleware + RLS), DST-aware shift times, CI on PostgreSQL 17
-- [ ] **M2** GraphQL API (Lighthouse + Sanctum), rule engine and packs, publish week, swap requests
+- [x] **M2** GraphQL API (Lighthouse + Sanctum), rule engine and packs, publish week, swap requests
 - [ ] **M3** Vue 3 week-grid dashboard (assign staff, see violations, publish)
+
+## GraphQL API
+
+Schema-first with Lighthouse: [`api/graphql/schema.graphql`](api/graphql/schema.graphql). One endpoint,
+`POST /graphql`, Sanctum bearer token. The tenant is taken from the token's user; another tenant's ids return the
+same generic `Not found.` as ids that don't exist.
+
+**The week grid** (7 SQL queries whether the week has 2 shifts or 200; a test enforces that the count does not grow):
+
+```graphql
+query Week($locationId: ID!, $weekStart: String!) {
+  schedule(locationId: $locationId, weekStart: $weekStart) {
+    weekStart status publishedVersion
+    shifts {
+      id localDate startLocal endLocal durationMinutes crossesDstTransition headcount requiredSkill
+      assignments { id staffMember { id name skills } }
+    }
+    violations { rule severity message shiftIds }
+  }
+}
+```
+
+**Assigning staff** returns rule violations as typed data. Blocking ones refuse the change; warnings come back with
+the new assignment:
+
+```graphql
+mutation { assignStaff(shiftId: "…", staffMemberId: "…") {
+  blocked
+  assignment { id }
+  violations { rule severity packId packVersion message shiftIds }
+} }
+```
+
+```json
+{ "blocked": true, "assignment": null, "violations": [{
+  "rule": "minor_worker_restrictions", "severity": "BLOCK", "packId": "us-ny", "packVersion": "2026.1",
+  "message": "Ella (age 15) cannot work past 22:00. (us-ny 2026.1)" }] }
+```
+
+Other operations: `createShift` (local time; DST-skipped times rejected), `unassignStaff`, `publishWeek` (full
+re-check; refused while any blocking violation remains; later edits put the week back to draft and re-publishing
+bumps `publishedVersion`), `requestSwap` / `approveSwap` (re-runs the rules for the incoming person) / `rejectSwap`.
+
+Limits: max depth 8, max complexity 300, introspection disabled when `APP_ENV=production`.
+
+### Rule packs
+
+[`api/resources/rule-packs/`](api/resources/rule-packs): versioned, effective-dated JSON per jurisdiction
+(`us-ny` 2025.1 and 2026.1, `gb` 2026.1) over seven pure rule types: no overlapping shifts, required skill,
+minimum rest, max hours per day/week, minor-worker restrictions (age on the shift date; daily/weekly hours,
+earliest start, latest end) and availability. Illustrative and simplified, **not legal advice**.
 
 ## Run it
 

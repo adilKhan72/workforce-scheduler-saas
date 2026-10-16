@@ -12,10 +12,10 @@ still be explainable with the rules that applied then.
 ## Decision
 
 - **Each rule type is a small, pure PHP class** (`MaxHoursPerWeek`, `MinRestBetweenShifts`, `MaxHoursPerDay`,
-  `MinorWorkerRestrictions`, `RequiredSkill`, `WithinAvailability`). It takes the candidate shift, the staff member's
+  `MinorWorkerRestrictions`, `RequiredSkill`, `WithinAvailability`, `NoOverlappingShifts`). It takes the candidate shift, the staff member's
   other shifts in the affected window and its parameters, and returns violations. No database access, so each rule is
   unit-tested with plain value objects.
-- **A rule pack is data:** a versioned, effective-dated JSON file (`rule-packs/us-ny/2026.1.json`) listing rule
+- **A rule pack is data:** a versioned, effective-dated JSON file (`api/resources/rule-packs/us-ny/2026.1.json`) listing rule
   instances, parameters and severity (`block` or `warn`). A location names its pack id; the engine picks the version
   effective on the shift's local date.
 - **Explainable results:** a violation carries the rule code, pack id and version, severity, a message with the

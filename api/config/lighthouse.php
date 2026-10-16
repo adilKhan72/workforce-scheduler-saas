@@ -1,10 +1,10 @@
 <?php
 
 declare(strict_types=1);
+use App\GraphQL\DomainErrorHandler;
+use App\Http\Middleware\SetTenantContext;
 use GraphQL\Error\DebugFlag;
 use GraphQL\Validator\Rules\DisableIntrospection;
-use GraphQL\Validator\Rules\QueryComplexity;
-use GraphQL\Validator\Rules\QueryDepth;
 use Nuwave\Lighthouse\Execution\AuthenticationErrorHandler;
 use Nuwave\Lighthouse\Execution\AuthorizationErrorHandler;
 use Nuwave\Lighthouse\Execution\ReportingErrorHandler;
@@ -60,6 +60,9 @@ return [
             // middleware, this delegates auth and permission checks to the field level.
             AttemptAuthentication::class,
 
+            // Tenant from the authenticated user + transaction-local app.tenant_id for RLS (ADR-0001).
+            SetTenantContext::class,
+
             // Logs every incoming GraphQL query.
             // Nuwave\Lighthouse\Http\Middleware\LogGraphQLQueries::class,
         ],
@@ -83,7 +86,7 @@ return [
     |
     */
 
-    'guards' => null,
+    'guards' => ['sanctum'],
 
     /*
     |--------------------------------------------------------------------------
@@ -246,9 +249,10 @@ return [
     */
 
     'security' => [
-        'max_query_complexity' => QueryComplexity::DISABLED,
-        'max_query_depth' => QueryDepth::DISABLED,
-        'disable_introspection' => (bool) env('LIGHTHOUSE_SECURITY_DISABLE_INTROSPECTION', false)
+        // The week grid is depth 6 and complexity ~60; the limits leave headroom but stop abuse.
+        'max_query_complexity' => (int) env('LIGHTHOUSE_MAX_QUERY_COMPLEXITY', 300),
+        'max_query_depth' => (int) env('LIGHTHOUSE_MAX_QUERY_DEPTH', 8),
+        'disable_introspection' => (bool) env('LIGHTHOUSE_SECURITY_DISABLE_INTROSPECTION', env('APP_ENV') === 'production')
             ? DisableIntrospection::ENABLED
             : DisableIntrospection::DISABLED,
     ],
@@ -319,6 +323,7 @@ return [
     */
 
     'error_handlers' => [
+        DomainErrorHandler::class,
         AuthenticationErrorHandler::class,
         AuthorizationErrorHandler::class,
         ValidationErrorHandler::class,

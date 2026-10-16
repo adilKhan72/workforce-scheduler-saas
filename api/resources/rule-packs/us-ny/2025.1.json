@@ -1,0 +1,14 @@
+{
+  "id": "us-ny",
+  "version": "2025.1",
+  "effective_from": "2025-01-01",
+  "description": "Earlier version kept so past schedules stay explainable. Illustrative; NOT legal advice.",
+  "rules": [
+    { "type": "no_overlapping_shifts", "severity": "block" },
+    { "type": "required_skill", "severity": "block" },
+    { "type": "minor_worker_restrictions", "severity": "block",
+      "params": { "under_age": 18, "max_hours_per_day": 8, "max_hours_per_week": 28, "latest_end_local": "22:00" } },
+    { "type": "min_rest_between_shifts", "severity": "warn", "params": { "min_hours": 10 } },
+    { "type": "max_hours_per_week", "severity": "warn", "params": { "max_hours": 40 } }
+  ]
+}

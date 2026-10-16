@@ -1,0 +1,194 @@
+# Workforce scheduling API. Every field requires a Sanctum bearer token; the tenant is taken from the
+# token's user, never from arguments. Another tenant's ids behave exactly like ids that do not exist.
+
+"ISO-8601 instant in UTC, e.g. 2026-10-19T13:00:00.000000Z."
+scalar DateTimeUtc @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\DateTimeUtc")
+
+type Query @guard {
+    "The signed-in manager."
+    me: User! @auth
+
+    locations: [Location!]! @all @orderBy(column: "name")
+
+    location(id: ID! @whereKey): Location @find
+
+    staffMembers: [StaffMember!]! @all @orderBy(column: "name")
+
+    "One location's schedule for the local week containing weekStart (any day of the week, YYYY-MM-DD)."
+    schedule(
+        locationId: ID!
+        weekStart: String! @rules(apply: ["date_format:Y-m-d"])
+    ): ScheduleWeek! @field(resolver: "App\\GraphQL\\Queries\\Schedule")
+
+    swapRequests(status: SwapStatus @eq): [SwapRequest!]! @all @orderBy(column: "created_at", direction: DESC)
+}
+
+type Mutation @guard {
+    "Create a shift in local wall-clock time. end <= start means it ends the next day."
+    createShift(input: CreateShiftInput! @spread): Shift! @field(resolver: "App\\GraphQL\\Mutations\\CreateShift")
+
+    "Assign a staff member. Blocking rule violations refuse the assignment; warnings are returned with it."
+    assignStaff(shiftId: ID!, staffMemberId: ID!): AssignStaffPayload!
+        @field(resolver: "App\\GraphQL\\Mutations\\AssignStaff")
+
+    unassignStaff(assignmentId: ID!): Shift! @field(resolver: "App\\GraphQL\\Mutations\\UnassignStaff")
+
+    "Re-check every assignment in the week and publish it, unless a blocking violation remains."
+    publishWeek(
+        locationId: ID!
+        weekStart: String! @rules(apply: ["date_format:Y-m-d"])
+    ): PublishWeekPayload! @field(resolver: "App\\GraphQL\\Mutations\\PublishWeek")
+
+    requestSwap(assignmentId: ID!, toStaffMemberId: ID!, reason: String @rules(apply: ["max:255"])): SwapRequest!
+        @field(resolver: "App\\GraphQL\\Mutations\\RequestSwap")
+
+    "Approving re-runs the rules for the incoming person."
+    approveSwap(id: ID!): ApproveSwapPayload! @field(resolver: "App\\GraphQL\\Mutations\\ApproveSwap")
+
+    rejectSwap(id: ID!): SwapRequest! @field(resolver: "App\\GraphQL\\Mutations\\RejectSwap")
+}
+
+input CreateShiftInput {
+    locationId: ID! @rename(attribute: "location_id")
+    localDate: String! @rename(attribute: "local_date") @rules(apply: ["date_format:Y-m-d"])
+    startLocal: String! @rename(attribute: "start_local") @rules(apply: ["date_format:H:i"])
+    endLocal: String! @rename(attribute: "end_local") @rules(apply: ["date_format:H:i"])
+    jobRole: String! @rename(attribute: "job_role") @rules(apply: ["max:100"])
+    requiredSkill: String @rename(attribute: "required_skill") @rules(apply: ["max:100"])
+    headcount: Int @rules(apply: ["integer", "min:1", "max:20"])
+}
+
+type User {
+    id: ID!
+    name: String!
+    email: String!
+    role: String!
+    tenant: Tenant! @belongsTo
+}
+
+type Tenant {
+    id: ID!
+    name: String!
+}
+
+type Location {
+    id: ID!
+    name: String!
+    "IANA time zone; shifts at this location are defined in it."
+    timezone: String!
+    rulePack: String! @rename(attribute: "rule_pack")
+}
+
+type StaffMember {
+    id: ID!
+    name: String!
+    email: String
+    jobRole: String! @rename(attribute: "job_role")
+    skills: [String!]!
+    contractedHoursPerWeek: Float! @rename(attribute: "contracted_hours_per_week")
+    availability: [Availability!]! @hasMany(relation: "availabilities")
+}
+
+type Availability {
+    "ISO-8601 weekday: 1 = Monday ... 7 = Sunday."
+    dayOfWeek: Int! @rename(attribute: "day_of_week")
+    startLocal: String! @rename(attribute: "start_local")
+    endLocal: String! @rename(attribute: "end_local")
+}
+
+enum WeekStatus {
+    DRAFT @enum(value: "draft")
+    PUBLISHED @enum(value: "published")
+}
+
+type ScheduleWeek {
+    "Null when nothing has been scheduled for this week yet."
+    id: ID
+    location: Location! @belongsTo
+    "Local Monday."
+    weekStart: String! @field(resolver: "App\\GraphQL\\Types\\ScheduleWeekFields@weekStart")
+    status: WeekStatus!
+    publishedVersion: Int! @rename(attribute: "published_version")
+    publishedAt: DateTimeUtc @rename(attribute: "published_at")
+    shifts: [Shift!]! @hasMany @orderBy(column: "start_utc")
+    "Full rule evaluation of every assignment in the week (what publishing would check)."
+    violations: [RuleViolation!]! @field(resolver: "App\\GraphQL\\Types\\ScheduleWeekFields@violations")
+}
+
+type Shift {
+    id: ID!
+    location: Location! @belongsTo
+    localDate: String! @rename(attribute: "local_date")
+    startLocal: String! @method(name: "startLocalTime")
+    endLocal: String! @method(name: "endLocalTime")
+    timezone: String!
+    startUtc: DateTimeUtc! @rename(attribute: "start_utc")
+    endUtc: DateTimeUtc! @rename(attribute: "end_utc")
+    "Real elapsed minutes (a 22:00-06:00 shift is 420 or 540 on DST nights)."
+    durationMinutes: Int! @method
+    crossesDstTransition: Boolean! @method
+    jobRole: String! @rename(attribute: "job_role")
+    requiredSkill: String @rename(attribute: "required_skill")
+    headcount: Int!
+    version: Int!
+    assignments: [ShiftAssignment!]! @hasMany
+}
+
+type ShiftAssignment {
+    id: ID!
+    shift: Shift! @belongsTo
+    staffMember: StaffMember! @belongsTo
+}
+
+enum Severity {
+    "The change was refused."
+    BLOCK @enum(value: "block")
+    "Allowed, but should be reviewed."
+    WARN @enum(value: "warn")
+}
+
+"An explainable rule result: the rule, the pack version and the numbers."
+type RuleViolation {
+    rule: String!
+    severity: Severity!
+    packId: String!
+    packVersion: String!
+    message: String!
+    staffMemberId: ID!
+    shiftIds: [ID!]!
+}
+
+type AssignStaffPayload {
+    "Null when blocked."
+    assignment: ShiftAssignment
+    blocked: Boolean!
+    violations: [RuleViolation!]!
+}
+
+type PublishWeekPayload {
+    week: ScheduleWeek!
+    published: Boolean!
+    violations: [RuleViolation!]!
+}
+
+enum SwapStatus {
+    PENDING @enum(value: "pending")
+    APPROVED @enum(value: "approved")
+    REJECTED @enum(value: "rejected")
+}
+
+type SwapRequest {
+    id: ID!
+    status: SwapStatus!
+    reason: String
+    assignment: ShiftAssignment! @belongsTo
+    fromStaffMember: StaffMember! @belongsTo
+    toStaffMember: StaffMember! @belongsTo
+    decidedAt: DateTimeUtc @rename(attribute: "decided_at")
+}
+
+type ApproveSwapPayload {
+    swapRequest: SwapRequest!
+    approved: Boolean!
+    violations: [RuleViolation!]!
+}

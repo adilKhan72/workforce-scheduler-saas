@@ -1,0 +1,16 @@
+{
+  "id": "us-ny",
+  "version": "2026.1",
+  "effective_from": "2026-01-01",
+  "description": "Illustrative pack for New York locations. Simplified for a demo; NOT legal advice.",
+  "rules": [
+    { "type": "no_overlapping_shifts", "severity": "block" },
+    { "type": "required_skill", "severity": "block" },
+    { "type": "minor_worker_restrictions", "severity": "block",
+      "params": { "under_age": 18, "max_hours_per_day": 8, "max_hours_per_week": 28, "earliest_start_local": "06:00", "latest_end_local": "22:00" } },
+    { "type": "min_rest_between_shifts", "severity": "warn", "params": { "min_hours": 11 } },
+    { "type": "max_hours_per_day", "severity": "warn", "params": { "max_hours": 12 } },
+    { "type": "max_hours_per_week", "severity": "warn", "params": { "max_hours": 40 } },
+    { "type": "within_availability", "severity": "warn" }
+  ]
+}
