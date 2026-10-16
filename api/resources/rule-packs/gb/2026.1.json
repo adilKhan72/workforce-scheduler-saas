@@ -1,0 +1,15 @@
+{
+  "id": "gb",
+  "version": "2026.1",
+  "effective_from": "2026-01-01",
+  "description": "Illustrative pack modelled loosely on GB working-time rules. Simplified (no 17-week averaging); NOT legal advice.",
+  "rules": [
+    { "type": "no_overlapping_shifts", "severity": "block" },
+    { "type": "required_skill", "severity": "block" },
+    { "type": "min_rest_between_shifts", "severity": "block", "params": { "min_hours": 11 } },
+    { "type": "minor_worker_restrictions", "severity": "block",
+      "params": { "under_age": 18, "max_hours_per_day": 8, "max_hours_per_week": 40, "earliest_start_local": "06:00", "latest_end_local": "22:00" } },
+    { "type": "max_hours_per_week", "severity": "warn", "params": { "max_hours": 48 } },
+    { "type": "within_availability", "severity": "warn" }
+  ]
+}

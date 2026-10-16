@@ -69,6 +69,26 @@ class Shift extends Model
         return ShiftTime::resolve($this->local_date, $this->start_local, $this->end_local, $this->timezone);
     }
 
+    public function durationMinutes(): int
+    {
+        return $this->time()->minutes();
+    }
+
+    public function crossesDstTransition(): bool
+    {
+        return $this->time()->crossesDstTransition();
+    }
+
+    public function startLocalTime(): string
+    {
+        return substr((string) $this->start_local, 0, 5);
+    }
+
+    public function endLocalTime(): string
+    {
+        return substr((string) $this->end_local, 0, 5);
+    }
+
     /** @return BelongsTo<Location, $this> */
     public function location(): BelongsTo
     {

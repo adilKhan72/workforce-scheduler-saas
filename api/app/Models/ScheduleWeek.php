@@ -32,6 +32,14 @@ class ScheduleWeek extends Model
         ];
     }
 
+    /** Any change after publishing puts the week back to draft until it is re-published. */
+    public function markChanged(): void
+    {
+        if ($this->status === self::PUBLISHED) {
+            $this->update(['status' => self::DRAFT]);
+        }
+    }
+
     /** @return BelongsTo<Location, $this> */
     public function location(): BelongsTo
     {
