@@ -1,0 +1,55 @@
+name: workforce-scheduler
+
+x-api-env: &api-env
+  APP_ENV: local
+  APP_DEBUG: "true"
+  APP_KEY: ${APP_KEY:?run `make key` or set APP_KEY in .env}
+  LOG_CHANNEL: stderr
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_DATABASE: scheduler
+  CACHE_STORE: array
+  SESSION_DRIVER: array
+  QUEUE_CONNECTION: sync
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: scheduler
+      POSTGRES_USER: scheduler          # owner: runs migrations only
+      POSTGRES_PASSWORD: scheduler
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-scheduler_app_local_only}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init-app-role.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scheduler -d scheduler"]
+      interval: 5s
+      retries: 10
+
+  # One-shot: migrations run as the table owner.
+  migrate:
+    build: ./api
+    command: ["php", "artisan", "migrate", "--force"]
+    environment:
+      <<: *api-env
+      DB_USERNAME: scheduler
+      DB_PASSWORD: scheduler
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # The API connects as the non-owner runtime role, so row-level security applies.
+  api:
+    build: ./api
+    environment:
+      <<: *api-env
+      DB_USERNAME: scheduler_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:-scheduler_app_local_only}
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
