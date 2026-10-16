@@ -51,5 +51,10 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  dashboard:
+    build: ./dashboard
+    ports: ["5173:80"]
+    depends_on: [api]
+
 volumes:
   pgdata:
