@@ -53,6 +53,24 @@ jobs:
         run: php artisan test --display-skipped 2>&1 | tee test-output.txt; test ${PIPESTATUS[0]} -eq 0 && ! grep -qE "Tests:.*skipped" test-output.txt
         shell: bash
 
+  dashboard:
+    name: dashboard (Vue)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - name: Type-check (vue-tsc) and build
+        run: npm run build
+
   compose:
     name: docker compose build
     runs-on: ubuntu-latest

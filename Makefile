@@ -1,4 +1,4 @@
-.PHONY: key up down seed test test-api test-api-pg
+.PHONY: key up down seed test test-api test-api-pg test-dashboard
 
 PHP_IMAGE = composer:2
 DOCKER_PHP = docker run --rm -m 700m -u $$(id -u):$$(id -g) -e COMPOSER_HOME=/tmp/composer -v "$$PWD/api":/app -w /app
@@ -19,7 +19,10 @@ down:
 seed:
 	docker compose run --rm migrate php artisan db:seed --force
 
-test: test-api
+test: test-api test-dashboard
+
+test-dashboard:
+	cd dashboard && npm ci --silent && npm test && npm run build
 
 # Fast loop on SQLite (the RLS suite is skipped there, with a reason).
 test-api:
