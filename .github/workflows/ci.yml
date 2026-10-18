@@ -7,12 +7,12 @@ on:
 
 jobs:
   api:
-    name: api (Laravel, PostgreSQL 17)
+    name: api (Laravel, PostgreSQL 18)
     runs-on: ubuntu-latest
     # Row-level security is PostgreSQL-only, so CI never uses the SQLite default from phpunit.xml.
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_DB: scheduler_test
           POSTGRES_USER: scheduler

@@ -1,7 +1,7 @@
 # workforce-scheduler-saas
 
 A multi-tenant staff-scheduling SaaS: **Laravel 13 GraphQL API (Lighthouse) + Vue 3 / TypeScript dashboard**, on
-PostgreSQL 17 with **row-level security** as a second line of tenant isolation.
+PostgreSQL 18 with **row-level security** as a second line of tenant isolation.
 
 Employers (tenants) have locations, staff (roles, skills, availability, contracted hours, minors) and weekly
 schedules of shifts. Assigning someone to a shift is checked against a versioned **labour-rule pack** (maximum
@@ -27,7 +27,7 @@ flowchart LR
         PACKS[("rule-packs/*.json<br/>versioned, effective-dated")] --> ENGINE
         SVC --> MODELS["Eloquent models<br/>BelongsToTenant global scope"]
     end
-    MODELS -->|"connects as scheduler_app<br/>(not owner, not superuser)"| PG[("PostgreSQL 17<br/>FORCE ROW LEVEL SECURITY<br/>tenant_id = current_setting('app.tenant_id')")]
+    MODELS -->|"connects as scheduler_app<br/>(not owner, not superuser)"| PG[("PostgreSQL 18<br/>FORCE ROW LEVEL SECURITY<br/>tenant_id = current_setting('app.tenant_id')")]
 ```
 
 Two independent tenant-isolation layers: the Eloquent scope (primary control) and RLS (backstop). Tests bypass
@@ -72,7 +72,7 @@ cannot reference another tenant's row even if RLS were off.
 
 ## Roadmap
 
-- [x] **M1** Domain model, tenancy (scope + middleware + RLS), DST-aware shift times, CI on PostgreSQL 17
+- [x] **M1** Domain model, tenancy (scope + middleware + RLS), DST-aware shift times, CI on PostgreSQL 18
 - [x] **M2** GraphQL API (Lighthouse + Sanctum), rule engine and packs, publish week, swap requests
 - [x] **M3** Vue 3 week-grid dashboard (assign staff, see violations, publish)
 
@@ -152,18 +152,18 @@ For development: `cd dashboard && npm install && API_URL=http://localhost:8000 n
 
 ```bash
 make test-api      # Pint + tests on SQLite (fast; RLS suite skipped with a reason)
-make test-api-pg   # full suite on the compose PostgreSQL 17, as CI runs it
+make test-api-pg   # full suite on the compose PostgreSQL 18, as CI runs it
 make test-dashboard  # vitest + vue-tsc + vite build
 ```
 
-CI runs everything on PostgreSQL 17 and fails if any test is skipped there.
+CI runs everything on PostgreSQL 18 and fails if any test is skipped there.
 
 ## What is verified, and what is not
 
-- **Verified by tests (CI, PostgreSQL 17):** 78 API tests (tenancy scope; RLS with the scope bypassed, as the
+- **Verified by tests (CI, PostgreSQL 18):** 78 API tests (tenancy scope; RLS with the scope bypassed, as the
   runtime role; DST maths; every rule type; GraphQL queries and mutations incl. cross-tenant ids; an N+1 guard;
   depth and complexity limits) and 24 dashboard tests (vitest).
-- **Verified by hand:** the dashboard against a real API and PostgreSQL 17 (API connected as `scheduler_app`):
+- **Verified by hand:** the dashboard against a real API and PostgreSQL 18 (API connected as `scheduler_app`):
   sign-in, week grid, a blocked assignment (missing skill), a warning (outside availability), publishing v1, and an
   added 22:00-06:00 shift on 31 Oct 2026 showing 9h with a DST marker. A cross-tenant schedule request returned
   `Not found.`. The screenshot above is from that run.

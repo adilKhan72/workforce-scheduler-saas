@@ -28,7 +28,7 @@ test-dashboard:
 test-api:
 	$(DOCKER_PHP) $(PHP_IMAGE) sh -c 'composer install -q && cp -n .env.example .env; php artisan key:generate -q; vendor/bin/pint --test && php artisan test'
 
-# Full suite on PostgreSQL 17, as CI runs it (needs `make up` for the postgres service).
+# Full suite on PostgreSQL 18, as CI runs it (needs `make up` for the postgres service).
 test-api-pg:
 	docker compose exec -T postgres psql -U scheduler -d scheduler -tc "select 1 from pg_database where datname='scheduler_test'" | grep -q 1 || \
 		docker compose exec -T postgres createdb -U scheduler scheduler_test
