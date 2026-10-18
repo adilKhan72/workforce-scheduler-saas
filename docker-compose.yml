@@ -15,7 +15,7 @@ x-api-env: &api-env
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: scheduler
       POSTGRES_USER: scheduler          # owner: runs migrations only
