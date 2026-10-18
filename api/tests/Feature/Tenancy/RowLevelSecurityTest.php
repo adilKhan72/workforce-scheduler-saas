@@ -32,7 +32,7 @@ final class RowLevelSecurityTest extends TestCase
         parent::setUp();
 
         if (! $this->onPostgres()) {
-            $this->markTestSkipped('Row-level security is PostgreSQL-only; CI runs this suite on PostgreSQL 17.');
+            $this->markTestSkipped('Row-level security is PostgreSQL-only; CI runs this suite on PostgreSQL 18.');
         }
 
         [$this->a, $this->b] = Tenant::factory()->count(2)->create();
