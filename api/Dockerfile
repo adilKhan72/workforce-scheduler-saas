@@ -1,4 +1,4 @@
-FROM php:8.4-cli-alpine
+FROM php:8.5-cli-alpine
 
 RUN apk add --no-cache postgresql-libs \
     && apk add --no-cache --virtual .build-deps postgresql-dev $PHPIZE_DEPS \
